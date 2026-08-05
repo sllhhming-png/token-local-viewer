@@ -91,6 +91,8 @@ EOF
 chmod +x "$DESKTOP/打开本地Token看板.command"
 
 echo "4/4 完成。现在会打开本地 Token 看板；以后双击桌面的「打开本地Token看板.command」即可。"
+: > /tmp/token-local-viewer.log
+: > /tmp/token-local-viewer.err.log
 if [ "$OS" = "Darwin" ]; then
   mkdir -p "$LAUNCH_AGENT_DIR"
   cat > "$LAUNCH_AGENT" <<EOF
@@ -115,13 +117,22 @@ if [ "$OS" = "Darwin" ]; then
 EOF
   launchctl bootout "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
   pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  sleep 1
   launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENT" >/dev/null 2>&1 || true
   launchctl kickstart -k "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
 else
   pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  sleep 1
   nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
 fi
 sleep 3
 cat /tmp/token-local-viewer.log 2>/dev/null || true
 cat /tmp/token-local-viewer.err.log 2>/dev/null || true
-echo "如果浏览器没有自动打开，请访问 http://127.0.0.1:3899/ ，或双击桌面的「打开本地Token看板.command」。"
+VIEWER_URL="$(grep -Eo 'http://127\.0\.0\.1:[0-9]+/' /tmp/token-local-viewer.log 2>/dev/null | tail -n 1 || true)"
+if [ -z "$VIEWER_URL" ]; then
+  VIEWER_URL="http://127.0.0.1:3899/"
+fi
+if [ "$OS" = "Darwin" ]; then
+  open "$VIEWER_URL" >/dev/null 2>&1 || true
+fi
+echo "如果浏览器没有自动打开，请访问 $VIEWER_URL ，或双击桌面的「打开本地Token看板.command」。"
