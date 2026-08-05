@@ -2,6 +2,7 @@
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import threading
@@ -17,6 +18,8 @@ REFRESH_SECONDS = 300
 OPENTOKEN = Path.home() / ".local/bin/opentoken"
 APP_DIR = Path(__file__).resolve().parent
 ALLOWED_TOOLS = {"codex", "claude-code", "hermes", "cursor", "copilot-cli"}
+PID_FILE = Path("/tmp/token-local-viewer.pid")
+URL_FILE = Path("/tmp/token-local-viewer.url")
 
 cache = {
     "ok": False,
@@ -201,10 +204,51 @@ def free_port(start):
     raise SystemExit("找不到可用端口")
 
 
+def process_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def use_existing_viewer():
+    try:
+        pid = int(PID_FILE.read_text().strip())
+        url = URL_FILE.read_text().strip()
+    except Exception:
+        return False
+    if not url or not process_alive(pid):
+        return False
+    print(f"本地 Token 看板: {url}", flush=True)
+    webbrowser.open(url)
+    return True
+
+
+def write_runtime_files(url):
+    PID_FILE.write_text(str(os.getpid()))
+    URL_FILE.write_text(url)
+
+
+def cleanup_runtime_files(*_args):
+    for file_path in (PID_FILE, URL_FILE):
+        try:
+            if file_path.exists():
+                file_path.unlink()
+        except OSError:
+            pass
+    raise SystemExit(0)
+
+
 if __name__ == "__main__":
+    if use_existing_viewer():
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, cleanup_runtime_files)
+    signal.signal(signal.SIGINT, cleanup_runtime_files)
     threading.Thread(target=refresh_loop, daemon=True).start()
     port = free_port(START_PORT)
     url = f"http://{HOST}:{port}/"
+    write_runtime_files(url)
     print(f"本地 Token 看板: {url}", flush=True)
     webbrowser.open(url)
     ThreadingHTTPServer((HOST, port), Handler).serve_forever()

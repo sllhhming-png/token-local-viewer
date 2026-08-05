@@ -7,7 +7,7 @@ DESKTOP="$HOME/Desktop"
 OPENTOKEN="$BIN_DIR/opentoken"
 LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
 LAUNCH_AGENT="$LAUNCH_AGENT_DIR/com.sllhhming.token-local-viewer.plist"
-REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@v0.2.1}"
+REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@v0.2.2}"
 CURL_OPTS="--retry 3 --connect-timeout 20 --speed-time 20 --speed-limit 1024 -fL"
 
 mkdir -p "$APP_DIR" "$BIN_DIR"
@@ -88,6 +88,16 @@ chmod +x "$BIN_DIR/token-local-viewer"
 echo "3/4 生成桌面启动文件..."
 cat > "$DESKTOP/打开本地Token看板.command" <<'EOF'
 #!/bin/sh
+URL="$(cat /tmp/token-local-viewer.url 2>/dev/null || true)"
+if [ -n "$URL" ]; then
+  open "$URL" >/dev/null 2>&1 && exit 0
+fi
+launchctl kickstart -k "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
+sleep 2
+URL="$(cat /tmp/token-local-viewer.url 2>/dev/null || true)"
+if [ -n "$URL" ]; then
+  open "$URL" >/dev/null 2>&1 && exit 0
+fi
 exec "$HOME/.local/bin/token-local-viewer"
 EOF
 chmod +x "$DESKTOP/打开本地Token看板.command"
@@ -95,6 +105,7 @@ chmod +x "$DESKTOP/打开本地Token看板.command"
 echo "4/4 完成。现在会打开本地 Token 看板；以后双击桌面的「打开本地Token看板.command」即可。"
 : > /tmp/token-local-viewer.log
 : > /tmp/token-local-viewer.err.log
+rm -f /tmp/token-local-viewer.pid /tmp/token-local-viewer.url
 if [ "$OS" = "Darwin" ]; then
   mkdir -p "$LAUNCH_AGENT_DIR"
   cat > "$LAUNCH_AGENT" <<EOF
@@ -119,11 +130,13 @@ if [ "$OS" = "Darwin" ]; then
 EOF
   launchctl bootout "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
   pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  pkill -f 'Python .* server.py' >/dev/null 2>&1 || true
   sleep 1
   launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENT" >/dev/null 2>&1 || true
   launchctl kickstart -k "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
 else
   pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  pkill -f 'Python .* server.py' >/dev/null 2>&1 || true
   sleep 1
   nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
 fi
