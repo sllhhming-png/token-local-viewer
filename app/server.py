@@ -7,7 +7,6 @@ import socket
 import subprocess
 import threading
 import time
-import webbrowser
 from glob import glob
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -221,7 +220,6 @@ def use_existing_viewer():
     if not url or not process_alive(pid):
         return False
     print(f"本地 Token 看板: {url}", flush=True)
-    webbrowser.open(url)
     return True
 
 
@@ -250,5 +248,4 @@ if __name__ == "__main__":
     url = f"http://{HOST}:{port}/"
     write_runtime_files(url)
     print(f"本地 Token 看板: {url}", flush=True)
-    webbrowser.open(url)
     ThreadingHTTPServer((HOST, port), Handler).serve_forever()
