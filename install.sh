@@ -36,14 +36,18 @@ case "$OS" in
     ;;
 esac
 
-echo "1/4 下载本地 token 扫描器..."
-TMP="$OPENTOKEN.download.$$"
-curl -fSL "https://scys.com/tokenrank/dl/$ASSET" -o "$TMP"
-chmod +x "$TMP"
-if [ "$OS" = "Darwin" ]; then
-  /usr/bin/xattr -dr com.apple.quarantine "$TMP" >/dev/null 2>&1 || true
+if [ -x "$OPENTOKEN" ]; then
+  echo "1/4 已检测到本地 token 扫描器，直接复用。"
+else
+  echo "1/4 下载本地 token 扫描器，首次安装可能需要 1-5 分钟..."
+  TMP="$OPENTOKEN.download.$$"
+  curl --retry 3 --connect-timeout 20 -fL "https://scys.com/tokenrank/dl/$ASSET" -o "$TMP"
+  chmod +x "$TMP"
+  if [ "$OS" = "Darwin" ]; then
+    /usr/bin/xattr -dr com.apple.quarantine "$TMP" >/dev/null 2>&1 || true
+  fi
+  mv "$TMP" "$OPENTOKEN"
 fi
-mv "$TMP" "$OPENTOKEN"
 
 echo "2/4 安装本地看板..."
 curl -fSL "$REPO_RAW_BASE/app/server.py" -o "$APP_DIR/server.py"
@@ -71,4 +75,5 @@ EOF
 chmod +x "$DESKTOP/打开本地Token看板.command"
 
 echo "4/4 完成。现在会打开本地 Token 看板；以后双击桌面的「打开本地Token看板.command」即可。"
-"$BIN_DIR/token-local-viewer"
+nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
+echo "如果浏览器没有自动打开，请稍等几秒后双击桌面的「打开本地Token看板.command」。"
