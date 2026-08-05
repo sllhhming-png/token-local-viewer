@@ -5,7 +5,8 @@ APP_DIR="$HOME/.local/share/token-local-viewer"
 BIN_DIR="$HOME/.local/bin"
 DESKTOP="$HOME/Desktop"
 OPENTOKEN="$BIN_DIR/opentoken"
-REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://raw.githubusercontent.com/sllhhming-png/token-local-viewer/main}"
+REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@main}"
+CURL_OPTS="--retry 3 --connect-timeout 20 --speed-time 20 --speed-limit 1024 -fL"
 
 mkdir -p "$APP_DIR" "$BIN_DIR"
 
@@ -41,7 +42,7 @@ if [ -x "$OPENTOKEN" ]; then
 else
   echo "1/4 下载本地 token 扫描器，首次安装可能需要 1-5 分钟..."
   TMP="$OPENTOKEN.download.$$"
-  curl --retry 3 --connect-timeout 20 -fL "https://scys.com/tokenrank/dl/$ASSET" -o "$TMP"
+  curl $CURL_OPTS "https://scys.com/tokenrank/dl/$ASSET" -o "$TMP"
   chmod +x "$TMP"
   if [ "$OS" = "Darwin" ]; then
     /usr/bin/xattr -dr com.apple.quarantine "$TMP" >/dev/null 2>&1 || true
@@ -50,8 +51,8 @@ else
 fi
 
 echo "2/4 安装本地看板..."
-curl -fSL "$REPO_RAW_BASE/app/server.py" -o "$APP_DIR/server.py"
-curl -fSL "$REPO_RAW_BASE/app/index.html" -o "$APP_DIR/index.html"
+curl $CURL_OPTS "$REPO_RAW_BASE/app/server.py" -o "$APP_DIR/server.py"
+curl $CURL_OPTS "$REPO_RAW_BASE/app/index.html" -o "$APP_DIR/index.html"
 chmod +x "$APP_DIR/server.py"
 
 cat > "$BIN_DIR/token-local-viewer" <<'EOF'
