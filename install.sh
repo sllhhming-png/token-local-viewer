@@ -7,8 +7,18 @@ DESKTOP="$HOME/Desktop"
 OPENTOKEN="$BIN_DIR/opentoken"
 LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
 LAUNCH_AGENT="$LAUNCH_AGENT_DIR/com.sllhhming.token-local-viewer.plist"
-REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@v0.2.2}"
+REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@v0.2.3}"
 CURL_OPTS="--retry 3 --connect-timeout 20 --speed-time 20 --speed-limit 1024 -fL"
+
+stop_existing_viewers() {
+  pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  for PORT in $(seq 3899 3928); do
+    PIDS="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"
+    if [ -n "$PIDS" ]; then
+      kill $PIDS >/dev/null 2>&1 || true
+    fi
+  done
+}
 
 mkdir -p "$APP_DIR" "$BIN_DIR"
 
@@ -129,14 +139,12 @@ if [ "$OS" = "Darwin" ]; then
 </plist>
 EOF
   launchctl bootout "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
-  pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
-  pkill -f 'Python .* server.py' >/dev/null 2>&1 || true
+  stop_existing_viewers
   sleep 1
   launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENT" >/dev/null 2>&1 || true
   launchctl kickstart -k "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
 else
-  pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
-  pkill -f 'Python .* server.py' >/dev/null 2>&1 || true
+  stop_existing_viewers
   sleep 1
   nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
 fi
