@@ -5,6 +5,8 @@ APP_DIR="$HOME/.local/share/token-local-viewer"
 BIN_DIR="$HOME/.local/bin"
 DESKTOP="$HOME/Desktop"
 OPENTOKEN="$BIN_DIR/opentoken"
+LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
+LAUNCH_AGENT="$LAUNCH_AGENT_DIR/com.sllhhming.token-local-viewer.plist"
 REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@main}"
 CURL_OPTS="--retry 3 --connect-timeout 20 --speed-time 20 --speed-limit 1024 -fL"
 
@@ -58,7 +60,20 @@ chmod +x "$APP_DIR/server.py"
 cat > "$BIN_DIR/token-local-viewer" <<'EOF'
 #!/bin/sh
 APP_DIR="$HOME/.local/share/token-local-viewer"
-PY="$(command -v python3 || true)"
+PY=""
+for CANDIDATE in \
+  "$PYTHON" \
+  "$(command -v python3 2>/dev/null)" \
+  /usr/bin/python3 \
+  /opt/homebrew/bin/python3 \
+  /usr/local/bin/python3 \
+  /Library/Frameworks/Python.framework/Versions/Current/bin/python3
+do
+  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+    PY="$CANDIDATE"
+    break
+  fi
+done
 if [ -z "$PY" ]; then
   echo "需要 python3。macOS 可先安装 Xcode Command Line Tools。"
   exit 1
@@ -76,8 +91,37 @@ EOF
 chmod +x "$DESKTOP/打开本地Token看板.command"
 
 echo "4/4 完成。现在会打开本地 Token 看板；以后双击桌面的「打开本地Token看板.command」即可。"
-pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
-nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
-sleep 2
+if [ "$OS" = "Darwin" ]; then
+  mkdir -p "$LAUNCH_AGENT_DIR"
+  cat > "$LAUNCH_AGENT" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.sllhhming.token-local-viewer</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$BIN_DIR/token-local-viewer</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/tmp/token-local-viewer.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/token-local-viewer.err.log</string>
+</dict>
+</plist>
+EOF
+  launchctl bootout "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
+  pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  launchctl bootstrap "gui/$(id -u)" "$LAUNCH_AGENT" >/dev/null 2>&1 || true
+  launchctl kickstart -k "gui/$(id -u)/com.sllhhming.token-local-viewer" >/dev/null 2>&1 || true
+else
+  pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
+  nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
+fi
+sleep 3
 cat /tmp/token-local-viewer.log 2>/dev/null || true
+cat /tmp/token-local-viewer.err.log 2>/dev/null || true
 echo "如果浏览器没有自动打开，请访问 http://127.0.0.1:3899/ ，或双击桌面的「打开本地Token看板.command」。"
