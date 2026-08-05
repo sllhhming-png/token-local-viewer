@@ -7,7 +7,7 @@
 ## 安装
 
 ```sh
-curl -fsSL https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@main/install.sh | sh
+curl -fsSL https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@v0.2.0/install.sh | sh
 ```
 
 安装完成后，会自动打开本地看板，并在桌面生成：

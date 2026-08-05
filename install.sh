@@ -7,7 +7,7 @@ DESKTOP="$HOME/Desktop"
 OPENTOKEN="$BIN_DIR/opentoken"
 LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
 LAUNCH_AGENT="$LAUNCH_AGENT_DIR/com.sllhhming.token-local-viewer.plist"
-REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@main}"
+REPO_RAW_BASE="${TOKEN_LOCAL_VIEWER_RAW_BASE:-https://cdn.jsdelivr.net/gh/sllhhming-png/token-local-viewer@v0.2.0}"
 CURL_OPTS="--retry 3 --connect-timeout 20 --speed-time 20 --speed-limit 1024 -fL"
 
 mkdir -p "$APP_DIR" "$BIN_DIR"
