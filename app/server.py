@@ -119,6 +119,12 @@ class Handler(BaseHTTPRequestHandler):
         html_path = APP_DIR / "index.html"
         self.send_body(200, html_path.read_bytes(), "text/html; charset=utf-8")
 
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
 
 def free_port(start):
     for port in range(start, start + 30):
@@ -135,6 +141,6 @@ if __name__ == "__main__":
     threading.Thread(target=refresh_loop, daemon=True).start()
     port = free_port(START_PORT)
     url = f"http://{HOST}:{port}/"
-    print(f"本地 Token 看板: {url}")
+    print(f"本地 Token 看板: {url}", flush=True)
     webbrowser.open(url)
     ThreadingHTTPServer((HOST, port), Handler).serve_forever()

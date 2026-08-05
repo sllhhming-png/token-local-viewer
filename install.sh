@@ -75,5 +75,8 @@ EOF
 chmod +x "$DESKTOP/打开本地Token看板.command"
 
 echo "4/4 完成。现在会打开本地 Token 看板；以后双击桌面的「打开本地Token看板.command」即可。"
+pkill -f "$APP_DIR/server.py" >/dev/null 2>&1 || true
 nohup "$BIN_DIR/token-local-viewer" >/tmp/token-local-viewer.log 2>&1 &
-echo "如果浏览器没有自动打开，请稍等几秒后双击桌面的「打开本地Token看板.command」。"
+sleep 2
+cat /tmp/token-local-viewer.log 2>/dev/null || true
+echo "如果浏览器没有自动打开，请访问 http://127.0.0.1:3899/ ，或双击桌面的「打开本地Token看板.command」。"
