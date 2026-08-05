@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地 Token 看板</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --soft: #f7f8fb;
+      --text: #111827;
+      --muted: #667085;
+      --quiet: #98a2b3;
+      --line: #e4e7ec;
+      --track: #f0f2f5;
+      --codex: #2f64e8;
+      --claude-code: #dc7656;
+      --hermes: #6d2bd9;
+      --workbuddy: #dc2626;
+      --cursor: #0ea5e9;
+      --copilot-cli: #84cc16;
+      --zhipu-api: #db2777;
+      --other: #64748b;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+    }
+
+    .page {
+      width: min(760px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 16px 0 28px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--quiet);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    button {
+      height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--muted);
+      padding: 0 10px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(240px, .65fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .today {
+      min-height: 178px;
+      padding: 22px 24px;
+      background: var(--soft);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+    }
+
+    .side-metrics {
+      display: grid;
+      gap: 10px;
+    }
+
+    .metric-card {
+      padding: 17px 20px;
+      min-height: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .label {
+      color: #344054;
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 850;
+    }
+
+    .date {
+      color: var(--quiet);
+      font-size: 18px;
+      font-weight: 600;
+      padding-top: 2px;
+      white-space: nowrap;
+    }
+
+    .big {
+      margin-top: 22px;
+      font-size: 42px;
+      line-height: 0.95;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+
+    .status {
+      margin-top: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--quiet);
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+
+    .metric-value {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .metric-label {
+      color: var(--quiet);
+      font-size: 16px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .panel {
+      padding: 20px 22px;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 20px;
+      line-height: 1.2;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--other);
+    }
+
+    .chart-area {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr);
+      gap: 8px;
+    }
+
+    .axis {
+      position: relative;
+      height: 240px;
+      color: var(--quiet);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .axis span {
+      position: absolute;
+      right: 4px;
+      transform: translateY(50%);
+    }
+
+    .plot {
+      height: 240px;
+      display: flex;
+      align-items: end;
+      gap: 4px;
+      padding-top: 8px;
+      border-bottom: 1px solid var(--line);
+      background:
+        linear-gradient(to bottom, var(--line) 0 1px, transparent 1px 50%, var(--line) 50% calc(50% + 1px), transparent calc(50% + 1px));
+      background-size: 100% 100%;
+    }
+
+    .bar {
+      flex: 1 1 0;
+      min-width: 5px;
+      display: flex;
+      flex-direction: column-reverse;
+      border-radius: 3px 3px 0 0;
+      overflow: hidden;
+    }
+
+    .seg { min-height: 1px; }
+
+    .dates {
+      display: flex;
+      justify-content: space-between;
+      color: var(--quiet);
+      font-size: 14px;
+      font-weight: 650;
+      margin: 8px 0 0 56px;
+    }
+
+    .rank-list {
+      display: grid;
+      gap: 15px;
+    }
+
+    .rank-row {
+      display: grid;
+      grid-template-columns: 120px minmax(120px, 1fr) 130px;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .rank-name {
+      min-width: 0;
+      color: #475467;
+      font-size: 15px;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .track {
+      height: 8px;
+      background: var(--track);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--other);
+    }
+
+    .rank-value {
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 750;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .more {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #f0f2f5;
+      color: var(--quiet);
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .note {
+      margin-top: 10px;
+      color: var(--quiet);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 520px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 650px;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    th, td {
+      height: 38px;
+      padding: 7px 10px;
+      border-bottom: 1px solid #eef0f3;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #fff;
+      color: var(--quiet);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    td {
+      color: #475467;
+      font-weight: 650;
+    }
+
+    td.total {
+      color: var(--text);
+      font-weight: 850;
+    }
+
+    td.cost {
+      color: #667085;
+      font-weight: 750;
+    }
+
+    .empty {
+      padding: 24px 0;
+      text-align: center;
+      color: var(--quiet);
+      font-weight: 700;
+    }
+
+    @media (max-width: 700px) {
+      .page { width: calc(100vw - 18px); }
+      h1 { font-size: 24px; }
+      .summary { grid-template-columns: 1fr; }
+      .today { min-height: 150px; padding: 18px; }
+      .big { font-size: 36px; margin-top: 18px; }
+      .side-metrics { grid-template-columns: 1fr 1fr; }
+      .metric-card { display: block; }
+      .metric-label { margin-top: 8px; display: block; }
+      .chart-area { grid-template-columns: 40px 1fr; }
+      .dates { margin-left: 48px; }
+      .rank-row { grid-template-columns: 92px minmax(90px, 1fr) 96px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>本地 Token 看板</h1>
+      <div class="controls">
+        <span id="status">扫描中</span>
+        <button id="refresh">刷新</button>
+      </div>
+    </header>
+
+    <section class="summary">
+      <div class="card today">
+        <div>
+          <div class="label">今日数据</div>
+          <div class="big" id="todayCodex">-</div>
+          <div class="sub" id="todayMeta">不含缓存 - · 缓存 -</div>
+          <div class="status"><i class="dot"></i><span id="syncText">正在扫描</span></div>
+        </div>
+        <div class="date" id="todayDate">-</div>
+      </div>
+      <div class="side-metrics">
+        <div class="card metric-card">
+          <div class="metric-value" id="allTotal">-</div>
+          <div class="metric-label">总用量</div>
+        </div>
+        <div class="card metric-card">
+          <div class="metric-value" id="allCost">-</div>
+          <div class="metric-label">预估 Token 成本</div>
+        </div>
+        <div class="card metric-card">
+          <div class="metric-value" id="activeDays">-</div>
+          <div class="metric-label">活跃天数</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card panel">
+      <h2>每天用量</h2>
+      <div class="legend" id="legend"></div>
+      <div class="chart-area">
+        <div class="axis"><span id="axisTop" style="top:0">-</span><span id="axisMid" style="top:50%">-</span></div>
+        <div class="plot" id="plot"></div>
+      </div>
+      <div class="dates"><span id="startDate">-</span><span id="endDate">-</span></div>
+    </section>
+
+    <section class="card panel">
+      <h2>按工具</h2>
+      <div class="rank-list" id="toolRanks"></div>
+      <div class="more">展开全部工具</div>
+    </section>
+
+    <section class="card panel">
+      <h2>按模型</h2>
+      <div class="rank-list" id="modelRanks"></div>
+      <div class="more">展开全部模型</div>
+      <div class="note">标「转发」的模型经第三方接口接入，缓存部分可能统计不全。</div>
+    </section>
+
+    <section class="card panel">
+      <h2>按天明细</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>Codex</th>
+              <th>Claude Code</th>
+              <th>Hermes</th>
+              <th>其他</th>
+              <th>合计</th>
+              <th>预估 Token 成本</th>
+            </tr>
+          </thead>
+          <tbody id="detailRows">
+            <tr><td colspan="7" class="empty">正在扫描本机日志</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let state = null;
+    const $ = (id) => document.getElementById(id);
+    const today = new Date().toISOString().slice(0, 10);
+    const COST_PER_TOKEN = 0.00000083;
+    const colorMap = {
+      codex: "#2f64e8",
+      "claude-code": "#dc7656",
+      hermes: "#6d2bd9",
+      workbuddy: "#dc2626",
+      cursor: "#0ea5e9",
+      "copilot-cli": "#84cc16",
+      "zhipu-api": "#db2777",
+      other: "#64748b",
+    };
+    const displayTool = {
+      codex: "Codex",
+      "claude-code": "Claude Code",
+      hermes: "Hermes",
+      workbuddy: "WorkBuddy",
+      cursor: "Cursor",
+      "copilot-cli": "Copilot CLI",
+      "zhipu-api": "zhipu-api",
+      other: "其他",
+    };
+
+    function sum(rows, key) {
+      return rows.reduce((total, row) => total + Number(row[key] || 0), 0);
+    }
+
+    function trim(n) {
+      return Number(n.toFixed(n >= 10 ? 1 : 2)).toString();
+    }
+
+    function formatToken(n) {
+      n = Math.round(Number(n || 0));
+      if (!n) return "-";
+      if (n >= 100000000) return `${trim(n / 100000000)}亿`;
+      if (n >= 10000) return `${trim(n / 10000)}万`;
+      return n.toLocaleString("zh-CN");
+    }
+
+    function formatCost(tokens) {
+      const cost = Number(tokens || 0) * COST_PER_TOKEN;
+      if (!cost) return "-";
+      return `$${cost.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+    }
+
+    function displayValue(row) {
+      if (row.tool === "codex") return Number(row.normalized || 0);
+      return Number(row.total_with_cache || 0);
+    }
+
+    function recentRows(rows, days = 31) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days + 1);
+      const key = cutoff.toISOString().slice(0, 10);
+      return rows.filter((row) => row.date >= key);
+    }
+
+    function group(rows, keys) {
+      const map = new Map();
+      for (const row of rows) {
+        const key = keys.map((name) => row[name] || "").join("|");
+        const current = map.get(key) || Object.fromEntries(keys.map((name) => [name, row[name] || ""]));
+        current.value = (current.value || 0) + displayValue(row);
+        current.normalized = (current.normalized || 0) + Number(row.normalized || 0);
+        current.cache = (current.cache || 0) + Number(row.cache_read || 0) + Number(row.cache_write || 0);
+        map.set(key, current);
+      }
+      return [...map.values()];
+    }
+
+    function groupByDate(rows) {
+      const map = new Map();
+      for (const row of rows) {
+        const item = map.get(row.date) || {
+          date: row.date,
+          codex: 0,
+          "claude-code": 0,
+          hermes: 0,
+          other: 0,
+          total: 0,
+        };
+        const value = displayValue(row);
+        if (row.tool === "codex") item.codex += value;
+        else if (row.tool === "claude-code") item["claude-code"] += value;
+        else if (row.tool === "hermes") item.hermes += value;
+        else item.other += value;
+        item.total += value;
+        map.set(row.date, item);
+      }
+      return [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    function renderRanks(container, rows, labelKey, labelFormatter = (x) => x) {
+      const total = sum(rows, "value");
+      const max = Math.max(1, ...rows.map((row) => row.value));
+      container.innerHTML = rows.slice(0, 8).map((row) => {
+        const rawLabel = row[labelKey] || "unknown";
+        const label = labelFormatter(rawLabel);
+        const color = colorMap[rawLabel] || colorMap.other;
+        const percent = total ? row.value / total * 100 : 0;
+        return `<div class="rank-row">
+          <div class="rank-name" title="${label}">${label}</div>
+          <div class="track"><div class="fill" style="width:${Math.max(1, row.value / max * 100)}%;background:${color}"></div></div>
+          <div class="rank-value">${formatToken(row.value)} · ${trim(percent)}%</div>
+        </div>`;
+      }).join("") || `<div class="empty">暂无数据</div>`;
+    }
+
+    function renderChart(rows) {
+      const chartRows = recentRows(rows, 31);
+      const byDateTool = group(chartRows, ["date", "tool"]);
+      const dates = [...new Set(byDateTool.map((row) => row.date))].sort();
+      const maxDay = Math.max(1, ...dates.map((date) =>
+        sum(byDateTool.filter((row) => row.date === date), "value")
+      ));
+      $("axisTop").textContent = formatToken(maxDay);
+      $("axisMid").textContent = formatToken(maxDay / 2);
+      $("startDate").textContent = dates[0] || "-";
+      $("endDate").textContent = dates[dates.length - 1] || "-";
+      $("legend").innerHTML = ["codex", "claude-code", "hermes", "workbuddy", "cursor", "copilot-cli", "zhipu-api"].map((tool) =>
+        `<span class="legend-item"><i class="swatch" style="background:${colorMap[tool]}"></i>${displayTool[tool]}</span>`
+      ).join("");
+      $("plot").innerHTML = dates.map((date) => {
+        const parts = byDateTool.filter((row) => row.date === date);
+        const total = sum(parts, "value");
+        const height = Math.max(1, total / maxDay * 100);
+        return `<div class="bar" title="${date} ${formatToken(total)}" style="height:${height}%">
+          ${parts.map((part) => `<div class="seg" style="height:${Math.max(1, part.value / Math.max(1, total) * 100)}%;background:${colorMap[part.tool] || colorMap.other}"></div>`).join("")}
+        </div>`;
+      }).join("");
+    }
+
+    function render() {
+      if (!state) return;
+      const rows = state.rows || [];
+      const todayRows = rows.filter((row) => row.date === today);
+      const todayNoCache = sum(todayRows, "normalized");
+      const todayCache = sum(todayRows, "cache_read") + sum(todayRows, "cache_write");
+      const todayTotal = sum(todayRows.map((row) => ({ value: displayValue(row) })), "value");
+      const allTotal = sum(rows.map((row) => ({ value: displayValue(row) })), "value");
+
+      $("todayDate").textContent = today;
+      $("todayCodex").textContent = formatToken(todayTotal);
+      $("todayMeta").textContent = `不含缓存 ${formatToken(todayNoCache)} · 缓存 ${formatToken(todayCache)}`;
+      $("allTotal").textContent = formatToken(allTotal);
+      $("allCost").textContent = formatCost(allTotal);
+      $("activeDays").textContent = new Set(rows.filter((row) => displayValue(row) > 0).map((row) => row.date)).size || "-";
+      const sync = state.refreshing
+        ? "扫描中"
+        : state.updatedAt ? `最近刷新 ${new Date(state.updatedAt).toLocaleTimeString("zh-CN", { hour12: false })}` : "未刷新";
+      $("status").textContent = sync;
+      $("syncText").textContent = sync;
+
+      renderChart(rows);
+      renderRanks($("toolRanks"), group(rows, ["tool"]).sort((a, b) => b.value - a.value), "tool", (tool) => displayTool[tool] || tool);
+      renderRanks($("modelRanks"), group(rows, ["model"]).sort((a, b) => b.value - a.value), "model");
+
+      const daily = groupByDate(rows);
+      $("detailRows").innerHTML = daily.map((day) => `
+        <tr>
+          <td>${day.date}</td>
+          <td>${formatToken(day.codex)}</td>
+          <td>${formatToken(day["claude-code"])}</td>
+          <td>${formatToken(day.hermes)}</td>
+          <td>${formatToken(day.other)}</td>
+          <td class="total">${formatToken(day.total)}</td>
+          <td class="cost">${formatCost(day.total)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="7" class="empty">暂无数据</td></tr>`;
+    }
+
+    async function load(refresh = false) {
+      const response = await fetch(`/api/usage${refresh ? "?refresh=1" : ""}`);
+      state = await response.json();
+      render();
+      if (state.refreshing) setTimeout(() => load(false), 1500);
+    }
+
+    $("refresh").addEventListener("click", () => load(true));
+    load();
+    setInterval(() => load(false), 15000);
+  </script>
+</body>
+</html>
