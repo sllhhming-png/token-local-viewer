@@ -55,6 +55,8 @@ fi
 echo "2/4 安装本地看板..."
 curl $CURL_OPTS "$REPO_RAW_BASE/app/server.py" -o "$APP_DIR/server.py"
 curl $CURL_OPTS "$REPO_RAW_BASE/app/index.html" -o "$APP_DIR/index.html"
+curl $CURL_OPTS "$REPO_RAW_BASE/app/accurate-scan.js" -o "$APP_DIR/accurate-scan.js"
+curl $CURL_OPTS "$REPO_RAW_BASE/app/claude-scan.js" -o "$APP_DIR/claude-scan.js"
 chmod +x "$APP_DIR/server.py"
 
 cat > "$BIN_DIR/token-local-viewer" <<'EOF'

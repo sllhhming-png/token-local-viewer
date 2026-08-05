@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import shutil
 import socket
 import subprocess
 import threading
@@ -50,6 +51,55 @@ def normalize_row(row):
     }
 
 
+def run_json_command(command, timeout=240):
+    output = subprocess.check_output(command, stderr=subprocess.STDOUT, timeout=timeout)
+    payload = json.loads(output.decode("utf-8") or "[]")
+    return payload if isinstance(payload, list) else payload.get("rows", [])
+
+
+def run_opentoken_preview():
+    return run_json_command([str(OPENTOKEN), "preview", "--json"])
+
+
+def run_node_scanner(script_name):
+    script = APP_DIR / script_name
+    node = shutil.which("node")
+    if not node or not script.exists():
+        return []
+    return run_json_command([node, str(script)])
+
+
+def merge_rows(official_rows, codex_rows, claude_rows):
+    merged = {}
+    has_codex_scan = len(codex_rows) > 0
+
+    def put_best(row):
+        key = f"{row['date']}|{row['tool']}|{row['model']}"
+        previous = merged.get(key)
+        if not previous or row["total_with_cache"] > previous["total_with_cache"]:
+            merged[key] = row
+
+    for raw_row in official_rows:
+        row = normalize_row(raw_row)
+        if not row["date"] or row["tool"] not in ALLOWED_TOOLS:
+            continue
+        if has_codex_scan and row["tool"] == "codex":
+            continue
+        put_best(row)
+
+    for raw_row in [*codex_rows, *claude_rows]:
+        row = normalize_row(raw_row)
+        if not row["date"] or row["tool"] not in ALLOWED_TOOLS:
+            continue
+        put_best(row)
+
+    return sorted(
+        merged.values(),
+        key=lambda item: (item["date"], item["tool"], item["model"]),
+        reverse=True,
+    )
+
+
 def refresh():
     global cache
     with lock:
@@ -59,26 +109,22 @@ def refresh():
 
     started_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     try:
-        output = subprocess.check_output(
-            [str(OPENTOKEN), "preview", "--json"],
-            stderr=subprocess.STDOUT,
-            timeout=240,
-        )
-        payload = json.loads(output.decode("utf-8") or "[]")
-        raw_rows = payload if isinstance(payload, list) else payload.get("rows", [])
-        rows = []
-        for raw_row in raw_rows:
-            row = normalize_row(raw_row)
-            if row["date"] and row["tool"] in ALLOWED_TOOLS:
-                rows.append(row)
-        rows.sort(key=lambda item: (item["date"], item["tool"], item["model"]), reverse=True)
+        official_rows = run_opentoken_preview()
+        codex_rows = run_node_scanner("accurate-scan.js")
+        claude_rows = run_node_scanner("claude-scan.js")
+        rows = merge_rows(official_rows, codex_rows, claude_rows)
         cache = {
             "ok": True,
             "refreshing": False,
             "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "error": None,
             "rows": rows,
-            "sources": {"startedAt": started_at, "opentokenRows": len(raw_rows)},
+            "sources": {
+                "startedAt": started_at,
+                "opentokenRows": len(official_rows),
+                "codexRows": len(codex_rows),
+                "claudeRows": len(claude_rows),
+            },
         }
     except Exception as error:
         cache = {
