@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 import webbrowser
+from glob import glob
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -61,9 +62,24 @@ def run_opentoken_preview():
     return run_json_command([str(OPENTOKEN), "preview", "--json"])
 
 
+def find_node():
+    candidates = [
+        shutil.which("node"),
+        "/opt/homebrew/bin/node",
+        "/usr/local/bin/node",
+        str(Path.home() / ".local/bin/node"),
+    ]
+    candidates.extend(glob(str(Path.home() / ".nvm/versions/node/*/bin/node")))
+    candidates.extend(glob(str(Path.home() / ".volta/bin/node")))
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+    return None
+
+
 def run_node_scanner(script_name):
     script = APP_DIR / script_name
-    node = shutil.which("node")
+    node = find_node()
     if not node or not script.exists():
         return []
     return run_json_command([node, str(script)])
@@ -110,6 +126,7 @@ def refresh():
     started_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     try:
         official_rows = run_opentoken_preview()
+        node_path = find_node()
         codex_rows = run_node_scanner("accurate-scan.js")
         claude_rows = run_node_scanner("claude-scan.js")
         rows = merge_rows(official_rows, codex_rows, claude_rows)
@@ -124,6 +141,7 @@ def refresh():
                 "opentokenRows": len(official_rows),
                 "codexRows": len(codex_rows),
                 "claudeRows": len(claude_rows),
+                "node": node_path,
             },
         }
     except Exception as error:
